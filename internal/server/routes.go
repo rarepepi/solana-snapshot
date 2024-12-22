@@ -49,6 +49,13 @@ func (s *Server) GetHoldersHandler(c echo.Context) error {
 		Amount float64
 	})
 
+	totalSupply := 0.0
+
+	excludedAddresses := map[string]bool{
+		"4zkYdZwM2dyT2pg5DcfcKdMPzXPJ9f7vQZrKRuXiqJaa": true,
+		"CqWe7DKyRQ58U5jDRpsJe5RvwiUmuYrrnBUV64WVTX1o": true,
+	}
+
 	for {
 		payload := map[string]interface{}{
 			"jsonrpc": "2.0",
@@ -84,8 +91,6 @@ func (s *Server) GetHoldersHandler(c echo.Context) error {
 			})
 		}
 
-		fmt.Printf("JSON Response: %+v\n", resp.Body)
-
 		var result struct {
 			Result struct {
 				TokenAccounts []struct {
@@ -104,12 +109,18 @@ func (s *Server) GetHoldersHandler(c echo.Context) error {
 		}
 
 		for _, account := range result.Result.TokenAccounts {
-			holderMap[account.Owner] = struct {
-				Owner  string
-				Amount float64
-			}{
-				Owner:  account.Owner,
-				Amount: float64(account.Amount) / 1e9,
+			if !excludedAddresses[account.Owner] {
+				amount := float64(account.Amount) / 1e9
+				if amount >= 1500 {
+					holderMap[account.Owner] = struct {
+						Owner  string
+						Amount float64
+					}{
+						Owner:  account.Owner,
+						Amount: amount,
+					}
+					totalSupply += amount
+				}
 			}
 		}
 
@@ -122,8 +133,12 @@ func (s *Server) GetHoldersHandler(c echo.Context) error {
 
 	buffer := &bytes.Buffer{}
 
+	// Write CSV header
+	buffer.WriteString("Owner,Amount,Percentage\n")
+
 	for _, info := range holderMap {
-		buffer.WriteString(fmt.Sprintf("%s,%f\n", info.Owner, info.Amount))
+		percentage := (info.Amount / totalSupply) * 100
+		buffer.WriteString(fmt.Sprintf("%s,%f,%f%%\n", info.Owner, info.Amount, percentage))
 	}
 
 	return c.Blob(http.StatusOK, "text/csv", buffer.Bytes())
