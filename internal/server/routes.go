@@ -50,6 +50,7 @@ func (s *Server) GetHoldersHandler(c echo.Context) error {
 	})
 
 	totalSupply := 0.0
+	totalAirdropAmount := 20000000.0 // 20 million tokens to distribute
 
 	excludedAddresses := map[string]bool{
 		"4zkYdZwM2dyT2pg5DcfcKdMPzXPJ9f7vQZrKRuXiqJaa": true,
@@ -133,12 +134,9 @@ func (s *Server) GetHoldersHandler(c echo.Context) error {
 
 	buffer := &bytes.Buffer{}
 
-	// Write CSV header
-	buffer.WriteString("Owner,Amount,Percentage\n")
-
 	for _, info := range holderMap {
-		percentage := (info.Amount / totalSupply) * 100
-		buffer.WriteString(fmt.Sprintf("%s,%f,%f%%\n", info.Owner, info.Amount, percentage))
+		airdropAmount := (info.Amount / totalSupply) * totalAirdropAmount
+		buffer.WriteString(fmt.Sprintf("%s,%f\n", info.Owner, airdropAmount))
 	}
 
 	return c.Blob(http.StatusOK, "text/csv", buffer.Bytes())
